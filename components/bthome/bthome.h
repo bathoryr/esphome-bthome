@@ -139,7 +139,7 @@ class BTHome : public Component {
   // Common settings
   uint16_t min_interval_{1000};
   uint16_t max_interval_{1000};
-  bool advertising_{false};
+  volatile bool advertising_{false};
 
   // Retransmission settings (for reliability, devices often send same packet multiple times)
   uint8_t retransmit_count_{0};       // Number of retransmissions (0 = disabled)
@@ -166,9 +166,12 @@ class BTHome : public Component {
   size_t adv_data_len_{0};
   bool data_changed_{true};
 
-  // Measurement rotation (for splitting across multiple packets)
-  size_t current_sensor_index_{0};
-  size_t current_binary_index_{0};
+  // Measurement rotation (for splitting across multiple packets). Indexes over
+  // object_id groups (see build_advertisement_data_), not individual measurements, so that
+  // sensors sharing a BTHome object_id are always emitted together or not at all. A single
+  // cursor spans sensors and binary sensors combined, so rotation is fair across all
+  // measurements and no category can starve the other.
+  size_t current_index_{0};
 
   // Scan response data (device name + manufacturer)
   uint8_t scan_rsp_data_[MAX_BLE_ADVERTISEMENT_SIZE];
@@ -186,7 +189,7 @@ class BTHome : public Component {
   #ifdef USE_BTHOME_NIMBLE
     // NimBLE-specific members
     uint8_t nimble_own_addr_type_{0};
-    bool nimble_initialized_{false};
+    volatile bool nimble_initialized_{false};
     static BTHome *instance_;  // For NimBLE callbacks
     static void nimble_host_task_(void *param);
     static void nimble_on_sync_();
